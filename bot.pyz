@@ -1,0 +1,109 @@
+import os
+import logging
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes, CallbackQueryHandler
+
+# Enable logging
+logging.basicConfig(
+    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
+)
+logger = logging.getLogger(__name__)
+
+# Bot configuration - using your specific details
+BOT_TOKEN = "8271221964:AAE2FfQ1aryD6nE0W-qzzWkyLF2WubhsDwo"
+CHANNEL_LINK = "https://t.me/eliteprofessionalne"
+GROUP_LINK = "https://t.me/eliteprofessionalnetw"
+TWITTER_LINK = "https://x.com/AdexApex12886"
+
+# Store user data (in production, use a database)
+user_data = {}
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send message on /start"""
+    user = update.effective_user
+    user_data[user.id] = {"completed_tasks": False, "wallet": None}
+    
+    keyboard = [
+        [InlineKeyboardButton("Join Channel", url=CHANNEL_LINK)],
+        [InlineKeyboardButton("Join Group", url=GROUP_LINK)],
+        [InlineKeyboardButton("Follow Twitter", url=TWITTER_LINK)],
+        [InlineKeyboardButton("I've completed all tasks", callback_data="completed_tasks")]
+    ]
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    
+    await update.message.reply_text(
+        f"Hi {user.first_name}! 👋\n\n"
+        "Welcome to the Miss MaxDev Airdrop Bot! 🎉\n\n"
+        "To qualify for the airdrop, please complete these tasks:\n"
+        f"1. Join our channel: {CHANNEL_LINK}\n"
+        f"2. Join our group: {GROUP_LINK}\n"
+        f"3. Follow our Twitter: {TWITTER_LINK}\n\n"
+        "After completing all tasks, click the button below:",
+        reply_markup=reply_markup
+    )
+
+async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle button callbacks"""
+    query = update.callback_query
+    await query.answer()
+    
+    if query.data == "completed_tasks":
+        user_data[query.from_user.id]["completed_tasks"] = True
+        await query.edit_message_text(
+            "Great! Now please send your Solana wallet address.\n\n"
+            "Example: 7a45XhP7Q1Z2oL8fJg9K0mNnRc3bBtVyCwSdE6hF..."
+        )
+
+async def handle_wallet(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Handle wallet address submission"""
+    user = update.effective_user
+    wallet_address = update.message.text.strip()
+    
+    # Simple validation for Solana wallet (basic length check)
+    if len(wallet_address) < 32 or len(wallet_address) > 44:
+        await update.message.reply_text(
+            "That doesn't look like a valid Solana wallet address. "
+            "Please send a valid address.\n\n"
+            "Example: 7a45XhP7Q1Z2oL8fJg9K0mNnRc3bBtVyCwSdE6hF..."
+        )
+        return
+    
+    # Store wallet address
+    if user.id in user_data:
+        user_data[user.id]["wallet"] = wallet_address
+    
+    # Send congratulations message
+    await update.message.reply_text(
+        f"🎉 Congratulations {user.first_name}! 🎉\n\n"
+        "You've successfully qualified for the Miss MaxDev airdrop!\n\n"
+        f"10 SOL is on its way to your address: {wallet_address}\n\n"
+        "Well done, hope you didn't cheat the system! 😉\n\n"
+        "Thank you for participating!"
+    )
+
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    """Send a message when the command /help is issued."""
+    await update.message.reply_text(
+        "How to participate in the airdrop:\n"
+        "1. Use /start to begin\n"
+        "2. Complete all the tasks\n"
+        "3. Submit your Solana wallet address\n"
+        "4. Receive your confirmation!"
+    )
+
+def main():
+    """Start the bot."""
+    # Create the Application
+    application = Application.builder().token(BOT_TOKEN).build()
+
+    # Add handlers
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CommandHandler("help", help_command))
+    application.add_handler(CallbackQueryHandler(button_handler))
+    application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handle_wallet))
+
+    # Start the Bot
+    application.run_polling()
+
+if __name__ == "__main__":
+    main()
